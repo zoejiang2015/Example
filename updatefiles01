@@ -1,0 +1,18 @@
+filename = "xx"
+def find_date_column(filename):
+    if(filename.find("xxxx")):
+        return -2
+    elif(filename.find("xxxx")):
+        return -1
+    elif(filename.find("xxxx")):
+        return 999
+
+
+def replace_date(column, new_bdate, new_bdate_code)
+    if column==999:
+        pass
+    else:
+        # read each lines
+        # replace column with new_bdate_code
+        # replace last line with new_bdate
+        # write into new file save as same name into different folder - no bdate for xxxx
