@@ -1,0 +1,140 @@
+import os
+import csv
+import re
+# import xlrd, xlwt
+"""
+Excel(CSV): Reading
+"""
+def get_cmr_and_owner_list(status_path, excel_name, sheet_name,column_name_cmr,column_name_owner):
+    cmr_list = [] # Read from excel
+    owner_list = []
+    owner_ship = {}
+    file_path = status_path + excel_name
+    with open(file_path, 'rU') as csv_file:
+        spamreader = csv.reader(csv_file, delimiter=',', dialect=csv.excel_tab)
+        for row in spamreader:
+            cmr = row[0]
+            owner = row[1]
+            cmr_list.append(cmr)
+            owner_list.append(owner)
+            owner_ship[cmr] = owner
+        return cmr_list, owner_ship   #{cmr_name_in_excel:owner}
+
+
+def read_sub_files(parent_path, file_folder_flag):
+    # read files
+    file_list = []
+    folder_list = []
+    for file in os.listdir(parent_path):
+        file_full_path = parent_path + '/' + file
+        if os.path.isdir(file_full_path):
+            folder_list.append(file)
+        elif os.path.isfile(file_full_path):
+            file_list.append(file)
+
+    if file_folder_flag == 'file':
+        return file_list
+    elif file_folder_flag == 'folder':
+        return folder_list
+    else:
+        print('incorrect file_folder_flag')
+        exit()
+
+def get_cmr_folder_name(general_path, owner_ship):
+    folder_list = read_sub_files(general_path, 'folder')
+
+    for key in owner_ship.keys():
+        if key.find('TBR') >= 0:
+            key_num = key
+        elif len(re.findall('\d+' + '_' +  '\d+',key))>0:
+            key_num = re.findall('\d+' + '_' +  '\d+',key)[0]
+        else:
+            key_num = 'Not a CMR Name'
+
+        cmr_has_folder = False
+        # suppose:
+        for folder_name in folder_list:
+            if folder_name.find(key_num) >= 0:
+                # folder belongs to related CMR, and store in dict: owner_ship
+                owner_ship[key] = [owner_ship[key],folder_name,key_num]
+                cmr_has_folder = True
+            if cmr_has_folder == True:
+                break
+            else:
+                continue
+        if cmr_has_folder == False:
+            print('[Approval Folder Status]: '+ key + " Does not find /CMR Folder under /requirement Folder, Contact owner: " + owner_ship[key])
+            owner_ship[key] = [owner_ship[key],"Not a CMR Name",key_num]
+
+    return owner_ship
+
+"""
+Check /approvals folder:
+If contains 'approvals' file,
+"""
+def check_approval_exists(general_path, cmr_path_name,cmr_name, cmr_owner, key_num):
+    path = general_path + '/' + cmr_path_name
+    sub_path = path + '/approvals'
+    # path = os.path.join()
+
+    # Case: /approvals path exists then:
+    if os.path.isdir(sub_path):
+        check_approvals_type(sub_path, cmr_name, key_num)
+    else:
+        # Case: /approvals path not exists then if typo yes, then go into
+        folder_list = read_sub_files(path, 'folder')
+        for folder in folder_list:
+            if folder.find('app') >= 0: # start with 'app', 'approvals'
+                sub_path = path + '/' + folder
+                check_approvals_type(sub_path, cmr_name, key_num)
+        else:
+            # Case：do not have any folder like: approvals, contact owner to create one to store
+            # owner = ownership[cmr_path_name]
+            print('[Approval folder status:] CMR ' + cmr_name + ' Does Not have "/Approvals" Folder, Contact Owner: ' + cmr_owner + ' to create')
+
+# cmr_name is not incorrect in approval fiels?
+def check_approvals_type(sub_path, cmr_name, key_num):
+    files_list = read_sub_files(sub_path, 'file')
+    for file in files_list:
+        file = file.upper()
+
+        # If any typo, please fulfillment typo case
+        if file.find(key_num) >=0 and file.find('APPROVALS') >=0 :
+            if file.find('DEV')>=0 and file.find('BUSINESS')>=0 and file.find('SQA')>=0:
+            #  cmr_name: get three approvals
+                print('[Approval Status]' + cmr_name + ': get three approvals(Dev, Business , SQA)')
+
+            elif file.find('DEV')>=0 and file.find('BUSINESS')==-1 and file.find('SQA')==-1:
+            # cmr_name: missing business and SQA approval
+                print('[Approval Status]' + cmr_name + ': missing business and SQA approval')
+
+
+            elif file.find('DEV')>=0 and file.find('BUSINESS')>=0 and file.find('SQA')==-1:
+            #     missing SQA approval
+                print('[Approval Status]' + cmr_name + ': missing SQA approval')
+        else:
+            print('[Approval Status]' + ': no related approval file existing for CMR: ' + cmr_name)
+
+# def copy_files(sourcePath, targetPath, fileName):
+
+# def cmr_approval_status():
+
+test_path = '/Users/zoejiang/documents/requirement/R12'
+status_path = test_path + '/' + 'Approvals/'
+excel_name = 'R12 Status Checking.csv'
+sheet_name = 'R12'
+column_name_cmr = 'CMRs'
+column_name_owner = 'Owners'
+owner_ship = get_cmr_and_owner_list(status_path, excel_name, sheet_name,column_name_cmr,column_name_owner)[1]
+
+owner_ship = get_cmr_folder_name(test_path, owner_ship)
+
+for key in owner_ship.keys():
+    cmr_name = key
+    owner = owner_ship[key][0]
+    cmr_path_name = owner_ship[key][1]
+    key_num = owner_ship[key][2]
+    if cmr_path_name == 'Not a CMR Name':
+        pass
+    else:
+        check_approval_exists(test_path, cmr_path_name,cmr_name, owner, key_num)
